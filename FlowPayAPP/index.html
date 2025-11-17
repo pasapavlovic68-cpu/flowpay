@@ -1,0 +1,294 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>FlowPay</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <!-- Splash screen -->
+  <div id="splash">
+    <div class="splash-logo-wrap">
+      <div class="splash-orbit"></div>
+      <div class="splash-logo-text">FlowPay</div>
+    </div>
+  </div>
+
+  <!-- Mobile sidebar toggle -->
+  <button class="mobile-sidebar-toggle" id="mobile-sidebar-toggle" aria-label="Toggle menu">FP</button>
+
+  <div class="app-container">
+    <!-- Sidebar Navigation -->
+    <aside class="sidebar">
+      <div class="logo">
+        <img src="./assets/flowpay-logo-pill.png" alt="FlowPay" class="logo-image">
+      </div>
+      <nav class="nav-menu">
+        <button class="nav-item active" data-section="dashboard">Dashboard</button>
+        <button class="nav-item" data-section="history">History</button>
+        <button class="nav-item" data-section="plan">Plan</button>
+        <button class="nav-item" data-section="settings">Settings</button>
+        <button class="nav-item" data-section="savings">Savings</button>
+      </nav>
+    </aside>
+
+    <!-- Main Content Area -->
+    <main class="content">
+      <!-- Dashboard Section -->
+      <section id="dashboard" class="section active">
+        <div class="dashboard-header">
+          <div class="today-date" id="current-date"></div>
+          <!-- Removed top overall progress bar per updated design -->
+        </div>
+
+        <div class="main-salary-card card">
+          <div class="salary-info">
+            <div class="salary-label">Total salary</div>
+            <div class="salary-value" id="total-salary">$0.00</div>
+            <!-- Added label for VND conversion in muted color -->
+            <div class="salary-vnd" id="total-salary-vnd"></div>
+          </div>
+          <!-- Controls: plan progress indicator and deposit button -->
+          <div class="salary-controls">
+            <div class="progress-circle" id="plan-progress-circle">
+              <span id="plan-progress-circle-label"></span>
+            </div>
+            <button class="btn gradient-btn deposit-open" id="open-deposit-modal">
+              + Deposit
+            </button>
+          </div>
+        </div>
+
+        <div class="summary-cards">
+          <div class="summary-card card" id="base-salary-card">
+            <div class="summary-title">Ставка</div>
+            <div class="summary-value" id="base-salary-value">$0.00</div>
+          </div>
+          <div class="summary-card card" id="commission-card">
+            <div class="summary-title">Зарплата с %</div>
+            <div class="summary-value" id="commission-value">$0.00</div>
+          </div>
+          <div class="summary-card card" id="active-plan-card">
+            <div class="summary-title">Активный план</div>
+            <div class="summary-value" id="active-plan-value">—</div>
+          </div>
+          <div class="summary-card card team-bonus-card" id="team-bonus-card">
+            <div class="summary-title">Командный бонус</div>
+            <div class="summary-value">
+              <span id="team-bonus-value">0%</span>
+              <label class="switch">
+                <input type="checkbox" id="team-bonus-toggle" />
+                <span class="slider"></span>
+              </label>
+            </div>
+          </div>
+        </div>
+
+        <div class="dashboard-plans">
+          <div class="plan-progress-overview">
+            <div class="plan-progress-bar">
+              <div class="plan-progress-fill" id="plan-progress-fill"></div>
+            </div>
+            <div class="plan-progress-text" id="plan-progress-text"></div>
+          </div>
+          <div class="plan-cards" id="dashboard-plan-cards">
+            <!-- Plan cards rendered by JS -->
+          </div>
+        </div>
+      </section>
+
+      <!-- History Section -->
+      <section id="history" class="section">
+        <h2>История</h2>
+        <div class="history-tabs">
+          <button class="tab active" data-view="days">По&nbsp;дням</button>
+          <button class="tab" data-view="weeks">По&nbsp;неделям</button>
+          <button class="tab" data-view="months">По&nbsp;месяцам</button>
+        </div>
+        <div class="history-content">
+          <div class="history-list" id="history-days"></div>
+          <div class="history-list hidden" id="history-weeks"></div>
+          <div class="history-list hidden" id="history-months"></div>
+        </div>
+      </section>
+
+      <!-- Plan Section -->
+      <section id="plan" class="section">
+        <h2>Личный план</h2>
+        <div class="plan-detail-progress">
+          <div class="plan-progress-container">
+            <div class="plan-progress-bar large">
+              <div class="plan-progress-fill" id="plan-detail-fill"></div>
+            </div>
+            <div class="plan-markers" id="plan-markers"></div>
+          </div>
+          <div class="plan-detail-text" id="plan-detail-text"></div>
+        </div>
+        <div class="plan-cards" id="detail-plan-cards"></div>
+      </section>
+
+      <!-- Settings Section -->
+      <section id="settings" class="section">
+        <h2>Настройки</h2>
+        <h3>Управление планками и процентами</h3>
+        <div class="settings-card card">
+          <div class="settings-field">
+            <label for="base-salary-input">Базовая ставка (USD)</label>
+            <input type="number" id="base-salary-input" min="0" step="0.01" />
+          </div>
+          <div class="settings-plans">
+            <div class="settings-column">
+              <div class="plan-settings" id="plan1-settings">
+                <h4>План 1</h4>
+                <label>Сумма до (USD)
+                  <input type="number" class="plan-max-input" data-plan="plan1" min="0" />
+                </label>
+                <label>Процент (%)
+                  <input type="number" class="plan-rate-input" data-plan="plan1" min="0" step="0.1" />
+                </label>
+              </div>
+              <div class="plan-settings" id="plan2-settings">
+                <h4>План 2</h4>
+                <label>Сумма до (USD)
+                  <input type="number" class="plan-max-input" data-plan="plan2" min="0" />
+                </label>
+                <label>Процент (%)
+                  <input type="number" class="plan-rate-input" data-plan="plan2" min="0" step="0.1" />
+                </label>
+              </div>
+            </div>
+            <div class="settings-column">
+              <div class="plan-settings" id="plan3-settings">
+                <h4>План 3</h4>
+                <label>Сумма до (USD)
+                  <input type="number" class="plan-max-input" data-plan="plan3" min="0" />
+                </label>
+                <label>Процент (%)
+                  <input type="number" class="plan-rate-input" data-plan="plan3" min="0" step="0.1" />
+                </label>
+              </div>
+              <div class="plan-settings" id="plan4-settings">
+                <h4>План 4+</h4>
+                <label>Процент (%)
+                  <input type="number" class="plan-rate-input" data-plan="plan4Plus" min="0" step="0.1" />
+                </label>
+                <p class="note">Применяется при превышении Плана 3</p>
+              </div>
+            </div>
+          </div>
+          <button class="btn gradient-btn save-settings-btn" id="save-settings">
+            Сохранить настройки
+          </button>
+        </div>
+      </section>
+
+      <!-- Savings Section -->
+      <section id="savings" class="section">
+        <h2>Savings</h2>
+        <div class="savings-header card">
+          <div class="savings-header-left">
+            <div class="savings-title-main">Savings goals</div>
+            <div class="savings-title-sub">Create goals and track your progress in VND</div>
+          </div>
+          <div class="savings-header-actions">
+            <button class="btn gradient-btn" id="open-goal-modal">+ Goal</button>
+            <button class="btn gradient-btn" id="open-money-modal">+ Money</button>
+          </div>
+        </div>
+        <div class="savings-goals-list" id="savings-goals-list">
+          <!-- Goal cards rendered by JS -->
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <!-- Deposit Modal -->
+  <div id="deposit-modal-overlay" class="modal-overlay hidden">
+    <div class="modal-content card">
+      <div class="modal-header">
+        <h3>Добавить депозит</h3>
+        <button class="close-modal" id="close-deposit-modal" aria-label="Close modal">&times;</button>
+      </div>
+      <div class="modal-body">
+        <label>Дата
+          <input type="date" id="deposit-date" />
+        </label>
+        <label>Количество депозитов
+          <input type="number" id="deposit-count" min="1" step="1" />
+        </label>
+        <label>Сумма депозита (USD)
+          <input type="number" id="deposit-amount" min="0" step="0.01" />
+        </label>
+      </div>
+      <div class="modal-actions">
+        <button class="btn gradient-btn" id="save-deposit">Сохранить</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Deposit success toast -->
+  <div id="deposit-success-toast" class="deposit-toast hidden">
+    <div class="deposit-toast-inner">
+      <div class="checkmark-wrapper">
+        <svg class="checkmark" viewBox="0 0 52 52">
+          <circle class="checkmark-circle" cx="26" cy="26" r="22" fill="none" />
+          <path class="checkmark-check" fill="none" d="M16 27 l7 7 l13 -14" />
+        </svg>
+        <div class="sparkles">
+          <span></span><span></span><span></span><span></span>
+        </div>
+      </div>
+      <div class="deposit-toast-text">Депозит внесен</div>
+    </div>
+  </div>
+
+  <!-- Goal Modal -->
+  <div id="goal-modal-overlay" class="modal-overlay hidden">
+    <div class="modal-content card">
+      <div class="modal-header">
+        <h3>Add goal</h3>
+        <button class="close-modal" id="close-goal-modal" aria-label="Close modal">&times;</button>
+      </div>
+      <div class="modal-body">
+        <label>Goal name
+          <input type="text" id="goal-name-input" />
+        </label>
+        <label>Target amount (VND)
+          <input type="number" id="goal-target-input" min="0" step="1" />
+        </label>
+        <label id="goal-saved-label" class="hidden">Saved amount (VND)
+          <input type="number" id="goal-saved-input" min="0" step="1" />
+        </label>
+      </div>
+      <div class="modal-actions">
+        <button class="btn gradient-btn" id="save-goal">Save</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Money Modal -->
+  <div id="money-modal-overlay" class="modal-overlay hidden">
+    <div class="modal-content card">
+      <div class="modal-header">
+        <h3>Add money</h3>
+        <button class="close-modal" id="close-money-modal" aria-label="Close modal">&times;</button>
+      </div>
+      <div class="modal-body">
+        <label>Select goal
+          <select id="money-goal-select"></select>
+        </label>
+        <label>Amount (VND)
+          <input type="number" id="money-amount-input" min="0" step="1" />
+        </label>
+      </div>
+      <div class="modal-actions">
+        <button class="btn gradient-btn" id="save-money">Save</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>
