@@ -3,16 +3,17 @@
 <head>
   <meta charset="UTF-8" />
   <meta http-equiv="X-UA-Compatible" content="IE=edge" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover" />
   <title>FlowPay</title>
   <link rel="stylesheet" href="styles.css" />
 </head>
 <body>
-  <!-- Splash screen -->
-  <div id="splash">
-    <div class="splash-logo-wrap">
-      <div class="splash-orbit"></div>
-      <div class="splash-logo-text">FlowPay</div>
+  <div id="app-root">
+  <!-- Splash overlay: single, transparent glass logo (no duplicates) -->
+  <div id="splash" aria-hidden="true">
+    <div class="splash-logo">
+      <h1 class="splash-logo-text">Flow Pay</h1>
+      <p class="splash-greeting">Здравствуйте · Pavel</p>
     </div>
   </div>
 
@@ -22,15 +23,53 @@
   <div class="app-container">
     <!-- Sidebar Navigation -->
     <aside class="sidebar">
-      <div class="logo">
-        <img src="./assets/flowpay-logo-pill.png" alt="FlowPay" class="logo-image">
-      </div>
       <nav class="nav-menu">
-        <button class="nav-item active" data-section="dashboard">Dashboard</button>
-        <button class="nav-item" data-section="history">History</button>
-        <button class="nav-item" data-section="plan">Plan</button>
-        <button class="nav-item" data-section="settings">Settings</button>
-        <button class="nav-item" data-section="savings">Savings</button>
+        <button class="nav-item glass-nav glass-nav--active active" data-section="dashboard">
+          <span class="sidebar-icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24" class="sidebar-icon-svg" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <path d="M3 11.5L12 4l9 7.5V20a1 1 0 0 1-1 1h-5v-5H9v5H4a1 1 0 0 1-1-1v-8.5z" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+          </span>
+          <span class="sidebar-label">Dashboard</span>
+        </button>
+        <button class="nav-item glass-nav" data-section="history">
+          <span class="sidebar-icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24" class="sidebar-icon-svg" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <circle cx="12" cy="12" r="8" stroke="currentColor" stroke-width="1.6"/>
+              <path d="M12 8v4l3 2" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+          </span>
+          <span class="sidebar-label">History</span>
+        </button>
+        <button class="nav-item glass-nav" data-section="plan">
+          <span class="sidebar-icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24" class="sidebar-icon-svg" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <circle cx="12" cy="12" r="7" stroke="currentColor" stroke-width="1.6"/>
+              <circle cx="12" cy="12" r="3" stroke="currentColor" stroke-width="1.6"/>
+              <path d="M12 3v2M12 19v2M3 12h2M19 12h2" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/>
+            </svg>
+          </span>
+          <span class="sidebar-label">Plan</span>
+        </button>
+        <button class="nav-item glass-nav" data-section="settings">
+          <span class="sidebar-icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24" class="sidebar-icon-svg" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <circle cx="12" cy="12" r="3" stroke="currentColor" stroke-width="1.6"/>
+              <path d="M19.4 15a1.7 1.7 0 0 0 .33 1.9l.1.1-1.6 2.7-1.8-.3a6.5 6.5 0 0 1-1.7 1l-.3 1.8h-3l-.3-1.8a6.5 6.5 0 0 1-1.7-1l-1.8.3-1.5-2.6 1.6-1A6.5 6.5 0 0 1 5 12c0-.7.1-1.4.3-2l-1.6-1L5.2 5.7l1.8.3c.4-.3.8-.6 1.2-.9L8.5 3h3l.3 1.8c.6.2 1.2.6 1.7 1l1.8-.3L18 6.8l-1.6 1c.2.6.3 1.3.3 2 0 .7-.1 1.4-.3 2l1.6 1z" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+          </span>
+          <span class="sidebar-label">Settings</span>
+        </button>
+        <button class="nav-item glass-nav" data-section="savings">
+          <span class="sidebar-icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24" class="sidebar-icon-svg" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <path d="M5 10c1-3 3.5-4.5 7-4.5 3.2 0 5.7 1.6 6.4 4.1L20.5 12h1.5v3h-2l-.7 2.2a1 1 0 0 1-.95.8H7.5A2.5 2.5 0 0 1 5 15.5V10z" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+              <circle cx="15" cy="11" r="0.8" fill="currentColor" />
+              <path d="M9 7.5a1.6 1.6 0 0 1 1.6-1.6" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/>
+            </svg>
+          </span>
+          <span class="sidebar-label">Savings</span>
+        </button>
       </nav>
     </aside>
 
@@ -43,10 +82,12 @@
           <!-- Removed top overall progress bar per updated design -->
         </div>
 
-        <div class="main-salary-card card">
+        <div class="main-salary-card card glass-panel">
           <div class="salary-info">
             <div class="salary-label">Total salary</div>
-            <div class="salary-value" id="total-salary">$0.00</div>
+            <div class="salary-value">
+              <span class="stat-chip" id="total-salary">$0.00</span>
+            </div>
             <!-- Added label for VND conversion in muted color -->
             <div class="salary-vnd" id="total-salary-vnd"></div>
           </div>
@@ -55,29 +96,35 @@
             <div class="progress-circle" id="plan-progress-circle">
               <span id="plan-progress-circle-label"></span>
             </div>
-            <button class="btn gradient-btn deposit-open" id="open-deposit-modal">
+            <button class="btn gradient-btn glass-button deposit-open" id="open-deposit-modal">
               + Deposit
             </button>
           </div>
         </div>
 
         <div class="summary-cards">
-          <div class="summary-card card" id="base-salary-card">
+          <div class="summary-card card glass-panel-soft" id="base-salary-card">
             <div class="summary-title">Ставка</div>
-            <div class="summary-value" id="base-salary-value">$0.00</div>
+            <div class="summary-value">
+              <span class="stat-chip" id="base-salary-value">$0.00</span>
+            </div>
           </div>
-          <div class="summary-card card" id="commission-card">
+          <div class="summary-card card glass-panel-soft" id="commission-card">
             <div class="summary-title">Зарплата с %</div>
-            <div class="summary-value" id="commission-value">$0.00</div>
+            <div class="summary-value">
+              <span class="stat-chip" id="commission-value">$0.00</span>
+            </div>
           </div>
-          <div class="summary-card card" id="active-plan-card">
+          <div class="summary-card card glass-panel-soft" id="active-plan-card">
             <div class="summary-title">Активный план</div>
-            <div class="summary-value" id="active-plan-value">—</div>
+            <div class="summary-value">
+              <span class="stat-chip" id="active-plan-value">—</span>
+            </div>
           </div>
-          <div class="summary-card card team-bonus-card" id="team-bonus-card">
+          <div class="summary-card card glass-panel-soft team-bonus-card" id="team-bonus-card">
             <div class="summary-title">Командный бонус</div>
             <div class="summary-value">
-              <span id="team-bonus-value">0%</span>
+              <span class="stat-chip" id="team-bonus-value">0%</span>
               <label class="switch">
                 <input type="checkbox" id="team-bonus-toggle" />
                 <span class="slider"></span>
@@ -97,6 +144,8 @@
             <!-- Plan cards rendered by JS -->
           </div>
         </div>
+
+        <div class="dashboard-goals" id="dashboard-goals"></div>
       </section>
 
       <!-- History Section -->
@@ -178,7 +227,7 @@
               </div>
             </div>
           </div>
-          <button class="btn gradient-btn save-settings-btn" id="save-settings">
+          <button class="btn gradient-btn glass-button save-settings-btn" id="save-settings">
             Сохранить настройки
           </button>
         </div>
@@ -193,8 +242,12 @@
             <div class="savings-title-sub">Create goals and track your progress in VND</div>
           </div>
           <div class="savings-header-actions">
-            <button class="btn gradient-btn" id="open-goal-modal">+ Goal</button>
-            <button class="btn gradient-btn" id="open-money-modal">+ Money</button>
+              <button id="completedGoalsButton" class="header-action-btn completed-goals-btn btn gradient-btn glass-button">
+                Completed goals
+                <span id="completedGoalsCount" class="completed-count-badge">0</span>
+              </button>
+              <button class="btn gradient-btn glass-button" id="open-goal-modal">+ Goal</button>
+              <button class="btn gradient-btn glass-button" id="open-money-modal">+ Money</button>
           </div>
         </div>
         <div class="savings-goals-list" id="savings-goals-list">
@@ -223,7 +276,22 @@
         </label>
       </div>
       <div class="modal-actions">
-        <button class="btn gradient-btn" id="save-deposit">Сохранить</button>
+        <button class="btn gradient-btn glass-button" id="save-deposit">Сохранить</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Completed Goals Modal -->
+  <div id="completedGoalsModal" class="modal-overlay hidden">
+    <div class="modal-content card completed-goals-modal">
+      <div class="modal-header">
+        <h3>Completed goals</h3>
+        <button class="close-modal" data-close-completed-goals aria-label="Close">&times;</button>
+      </div>
+      <div class="modal-body">
+        <div id="completedGoalsList" class="completed-goals-list">
+          <!-- Filled dynamically from JS -->
+        </div>
       </div>
     </div>
   </div>
@@ -263,7 +331,7 @@
         </label>
       </div>
       <div class="modal-actions">
-        <button class="btn gradient-btn" id="save-goal">Save</button>
+        <button class="btn gradient-btn glass-button" id="save-goal">Save</button>
       </div>
     </div>
   </div>
@@ -284,11 +352,13 @@
         </label>
       </div>
       <div class="modal-actions">
-        <button class="btn gradient-btn" id="save-money">Save</button>
+        <button class="btn gradient-btn glass-button" id="save-money">Save</button>
       </div>
     </div>
   </div>
 
+</div>
+  <script src="https://telegram.org/js/telegram-web-app.js"></script>
   <script src="app.js"></script>
 </body>
 </html>

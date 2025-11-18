@@ -18,6 +18,68 @@ const SUPABASE_ANON_KEY =
 const SUPABASE_TABLE = 'flowpay_state';
 const SUPABASE_ROW_ID = 1;
 
+/* ===== TELEGRAM WEBAPP INTEGRATION (defensive, non-breaking) ===== */
+const TelegramIntegration = (() => {
+  const tg = (typeof window !== 'undefined' && window.Telegram && window.Telegram.WebApp)
+    ? window.Telegram.WebApp
+    : null;
+
+  function isInTelegram() {
+    return !!tg;
+  }
+
+  function getUser() {
+    try {
+      if (!tg || !tg.initDataUnsafe) return null;
+      return tg.initDataUnsafe.user || null;
+    } catch (e) {
+      return null;
+    }
+  }
+
+  function getThemeParams() {
+    try {
+      if (!tg || !tg.themeParams) return {};
+      return tg.themeParams || {};
+    } catch (e) {
+      return {};
+    }
+  }
+
+  function ready() {
+    try {
+      if (tg && typeof tg.ready === 'function') tg.ready();
+    } catch (e) {
+      // ignore
+    }
+  }
+
+  return {
+    tg,
+    isInTelegram,
+    getUser,
+    getThemeParams,
+    ready,
+  };
+})();
+
+/* App-level context to expose Telegram info without changing app logic */
+window.AppContext = {
+  telegramUser: null,
+  telegramTheme: {},
+};
+
+function applyTelegramThemeIfNeeded() {
+  try {
+    if (!TelegramIntegration.isInTelegram()) return;
+    const theme = TelegramIntegration.getThemeParams();
+    const root = document.documentElement;
+    if (theme && (theme.bg_color || theme.secondary_bg_color || theme.text_color)) {
+      root.classList.add('tg-theme-active');
+    }
+  } catch (e) {}
+}
+
 /* ===== SUPABASE HELPERS ===== */
 
 function hasSupabaseConfig() {
@@ -284,6 +346,7 @@ async function saveStateToSupabase(state) {
     const plans = [];
     const { plan1, plan2, plan3, plan4Plus } = state.settings;
     const active = getActivePlan(total);
+    const baseSalary = Number(state.settings.baseSalary) || 0;
 
     const defs = [
       { name: 'План 1', min: 0, max: plan1.max, rate: plan1.rate },
@@ -294,7 +357,7 @@ async function saveStateToSupabase(state) {
 
     defs.forEach((def) => {
       const card = document.createElement('div');
-      card.className = 'plan-card card';
+      card.className = 'plan-card card glass-panel-soft';
       if (def.name === active.name) {
         card.classList.add('current');
         const pill = document.createElement('div');
@@ -344,11 +407,6 @@ async function saveStateToSupabase(state) {
         remaining = total < def.max ? def.max - total : 0;
       }
 
-      let potential = null;
-      if (def.max !== Infinity) {
-        potential = ((def.max - def.min) * def.rate) / 100;
-      }
-
       const info1 = document.createElement('div');
       info1.className = 'plan-card-info';
       info1.textContent = `% выполнения: ${progressPercent}%`;
@@ -371,10 +429,12 @@ async function saveStateToSupabase(state) {
 
       const info3 = document.createElement('div');
       info3.className = 'plan-card-info';
+      const commissionBaseAmount = def.max === Infinity ? def.min : def.max;
+      const effectiveRate = getEffectiveRate(def.rate);
+      const commissionAtCompletion = commissionBaseAmount * (effectiveRate / 100);
+      const finalEarningWithBase = baseSalary + commissionAtCompletion;
       info3.textContent =
-        potential == null
-          ? `Доход: ${def.rate}% от депозитов`
-          : `Заработок при выполнении: ${formatCurrency(potential)}`;
+        `Заработок при выполнении: ${formatCurrency(finalEarningWithBase)}`;
       card.appendChild(info3);
 
       plans.push(card);
@@ -395,12 +455,18 @@ async function saveStateToSupabase(state) {
       formatCurrency(commission);
     document.getElementById('active-plan-value').textContent =
       `${active.name} — ${active.rate}%`;
-    document.getElementById('team-bonus-value').textContent =
-      state.settings.teamBonusEnabled ? '1%' : '0%';
+    const teamBonusEnabled = !!state.settings.teamBonusEnabled;
+    const teamBonusValue = document.getElementById('team-bonus-value');
+    if (teamBonusValue) {
+      teamBonusValue.textContent = teamBonusEnabled ? '1%' : '0%';
+    }
     document.getElementById('total-salary').textContent =
       formatCurrency(totalSalary);
-    document.getElementById('team-bonus-toggle').checked =
-      !!state.settings.teamBonusEnabled;
+    document.getElementById('team-bonus-toggle').checked = teamBonusEnabled;
+    const teamBonusCard = document.getElementById('team-bonus-card');
+    if (teamBonusCard) {
+      teamBonusCard.classList.toggle('bonus-active', teamBonusEnabled);
+    }
 
     // Show VND conversion below total salary. Multiply by a constant rate.
     const vndEl = document.getElementById('total-salary-vnd');
@@ -490,98 +556,213 @@ async function saveStateToSupabase(state) {
 
   /* ---------- Savings / Goals ---------- */
 
+  function getGoalStatus(goal) {
+    const saved = Number(goal.savedVnd) || 0;
+    const target = Number(goal.targetVnd) || 0;
+    if (target > 0 && saved >= target) return 'completed';
+    if (saved > 0 && saved < target) return 'active';
+    return 'empty';
+  }
+
+  function createGoalCard(goal, options = {}) {
+    const { context = 'savings' } = options;
+    const saved = Number(goal.savedVnd) || 0;
+    const target = Number(goal.targetVnd) || 0;
+    const percentRaw = target > 0 ? Math.min((saved / target) * 100, 100) : 0;
+    const percentRounded = Math.round(percentRaw);
+    const status = getGoalStatus(goal);
+
+    const card = document.createElement('div');
+    card.className = 'goal-card card';
+    card.classList.add(`goal-card--${status}`);
+    if (context === 'dashboard') {
+      card.classList.add('goal-card--dashboard', 'glass-panel');
+    } else {
+      card.classList.add('glass-panel-soft');
+    }
+
+    const info = document.createElement('div');
+    info.className = 'goal-info';
+
+    const titleRow = document.createElement('div');
+    titleRow.className = 'goal-title-row';
+
+    const nameEl = document.createElement('span');
+    nameEl.className = 'goal-name';
+    nameEl.textContent = goal.name;
+    titleRow.appendChild(nameEl);
+
+    if (status === 'completed') {
+      const check = document.createElement('span');
+      check.className = 'goal-status-check';
+      const inner = document.createElement('span');
+      inner.className = 'goal-status-check-inner';
+      inner.textContent = '✓';
+      check.appendChild(inner);
+      titleRow.appendChild(check);
+    }
+
+    const editBtn = document.createElement('button');
+    editBtn.type = 'button';
+    editBtn.className = 'goal-edit-btn';
+    editBtn.setAttribute('data-goal-id', goal.id);
+    editBtn.textContent = 'Edit';
+    titleRow.appendChild(editBtn);
+
+    info.appendChild(titleRow);
+
+    const progressText = document.createElement('div');
+    progressText.className = 'goal-progress-text';
+    progressText.textContent =
+      `Внесено ${formatVNDWithDots(saved)} из ${formatVNDWithDots(target)}`;
+    info.appendChild(progressText);
+
+    const progressBar = document.createElement('div');
+    progressBar.className = 'goal-progress-bar';
+    const progressFill = document.createElement('div');
+    progressFill.className = 'goal-progress-bar-fill';
+    progressFill.style.width = percentRaw + '%';
+    progressBar.appendChild(progressFill);
+    info.appendChild(progressBar);
+
+    card.appendChild(info);
+
+    const stats = document.createElement('div');
+    stats.className = 'goal-stats';
+
+    const circle = document.createElement('div');
+    circle.className = 'goal-progress-circle';
+    const circleSpan = document.createElement('span');
+    circleSpan.textContent = percentRounded + '%';
+    circle.appendChild(circleSpan);
+    const deg = percentRounded * 3.6;
+    const progressColor = '#22c55e';
+    const trackColor = 'rgba(34, 197, 94, 0.12)';
+    circle.style.background =
+      `conic-gradient(${progressColor} 0deg ${deg}deg, ${trackColor} ${deg}deg 360deg)`;
+
+    stats.appendChild(circle);
+
+    const targetEl = document.createElement('div');
+    targetEl.className = 'goal-target-amount';
+    targetEl.textContent = formatVNDWithDots(target);
+    stats.appendChild(targetEl);
+
+    card.appendChild(stats);
+
+    return card;
+  }
+
   function renderSavingsGoals() {
     const container = document.getElementById('savings-goals-list');
     if (!container) return;
 
     container.innerHTML = '';
 
-    if (!state.goals || state.goals.length === 0) {
+    const goals = Array.isArray(state.goals) ? state.goals : [];
+    if (goals.length === 0) {
       const emptyMsg = document.createElement('div');
       emptyMsg.className = 'savings-empty';
       emptyMsg.textContent = 'No goals yet. Create your first goal to start saving!';
       container.appendChild(emptyMsg);
+      updateCompletedGoalsUI([]);
       return;
     }
 
-    state.goals.forEach((goal) => {
-      const card = document.createElement('div');
-      card.className = 'goal-card card';
+    // Split into active and completed goals
+    const { active, completed } = splitGoalsByCompletion(goals);
 
-      const isCompleted = goal.savedVnd >= goal.targetVnd;
-      const percent = Math.min((goal.savedVnd / goal.targetVnd) * 100, 100);
-      const percentRounded = Math.round(percent);
+    // Sort active goals by progress (higher first)
+    const sortedActive = sortActiveGoalsByProgress(active);
 
-      if (isCompleted) {
-        card.classList.add('goal-card--completed');
-      }
-
-      const header = document.createElement('div');
-      header.className = 'goal-card-header';
-
-      const titleSection = document.createElement('div');
-      titleSection.className = 'goal-card-title';
-
-      const nameDiv = document.createElement('div');
-      nameDiv.className = 'goal-name';
-      nameDiv.textContent = goal.name;
-
-      titleSection.appendChild(nameDiv);
-
-      if (isCompleted) {
-        const iconDiv = document.createElement('div');
-        iconDiv.className = 'goal-completed-icon';
-        iconDiv.textContent = '✅';
-        titleSection.appendChild(iconDiv);
-      }
-
-      const editBtn = document.createElement('button');
-      editBtn.className = 'goal-edit-btn';
-      editBtn.setAttribute('data-goal-id', goal.id);
-      editBtn.textContent = 'Edit';
-      titleSection.appendChild(editBtn);
-
-      header.appendChild(titleSection);
-
-      const topRight = document.createElement('div');
-      topRight.className = 'goal-card-top-right';
-
-      const circle = document.createElement('div');
-      circle.className = 'goal-progress-circle';
-      const circleSpan = document.createElement('span');
-      circleSpan.textContent = percentRounded + '%';
-      circle.appendChild(circleSpan);
-      const deg = percentRounded * 3.6;
-      const progressColor = '#22c55e';
-      const trackColor = 'rgba(34, 197, 94, 0.15)';
-      circle.style.background = `conic-gradient(${progressColor} 0deg ${deg}deg, ${trackColor} ${deg}deg 360deg)`;
-
-      topRight.appendChild(circle);
-
-      const targetDiv = document.createElement('div');
-      targetDiv.className = 'goal-target-amount';
-      targetDiv.textContent = formatVNDWithDots(goal.targetVnd);
-      topRight.appendChild(targetDiv);
-
-      header.appendChild(topRight);
-      card.appendChild(header);
-
-      const progressBar = document.createElement('div');
-      progressBar.className = 'goal-progress-bar';
-      const progressFill = document.createElement('div');
-      progressFill.className = 'goal-progress-fill';
-      progressFill.style.width = percent + '%';
-      progressBar.appendChild(progressFill);
-      card.appendChild(progressBar);
-
-      const progressText = document.createElement('div');
-      progressText.className = 'goal-progress-text';
-      progressText.textContent =
-        `Внесено ${formatVNDWithDots(goal.savedVnd)} из ${formatVNDWithDots(goal.targetVnd)}`;
-      card.appendChild(progressText);
-
-      container.appendChild(card);
+    // Render active goals in sorted order
+    sortedActive.forEach((goal) => {
+      container.appendChild(createGoalCard(goal, { context: 'savings' }));
     });
+
+    // Update completed goals UI (badge + modal list)
+    updateCompletedGoalsUI(completed);
+  }
+
+  /* ---------- Savings helpers: split and sort goals ---------- */
+  function splitGoalsByCompletion(goals) {
+    const active = [];
+    const completed = [];
+
+    goals.forEach((goal) => {
+      const current = Number(goal.savedVnd || 0);
+      const target = Number(goal.targetVnd || 0);
+      const progress = target > 0 ? (current / target) * 100 : 0;
+      const copy = { ...goal, progress };
+      if (progress >= 100) completed.push(copy);
+      else active.push(copy);
+    });
+
+    return { active, completed };
+  }
+
+  function sortActiveGoalsByProgress(activeGoals) {
+    return activeGoals.slice().sort((a, b) => b.progress - a.progress);
+  }
+
+  function updateCompletedGoalsUI(completedGoals) {
+    const countEl = document.getElementById('completedGoalsCount');
+    const listEl = document.getElementById('completedGoalsList');
+    if (countEl) {
+      countEl.textContent = String((completedGoals && completedGoals.length) || 0);
+      if ((completedGoals && completedGoals.length) === 0) {
+        countEl.style.visibility = 'visible';
+        // keep showing 0 as per spec; alternatively hide: countEl.style.visibility = 'hidden';
+      } else {
+        countEl.style.visibility = 'visible';
+      }
+    }
+    if (!listEl) return;
+    listEl.innerHTML = '';
+    if (!completedGoals || completedGoals.length === 0) {
+      const empty = document.createElement('div');
+      empty.className = 'completed-goal-item-meta';
+      empty.textContent = 'No completed goals yet';
+      listEl.appendChild(empty);
+      return;
+    }
+
+    completedGoals.forEach((goal) => {
+      const item = document.createElement('div');
+      item.className = 'completed-goal-item';
+
+      const title = document.createElement('div');
+      title.className = 'completed-goal-item-title';
+      title.textContent = goal.name;
+
+      const meta = document.createElement('div');
+      meta.className = 'completed-goal-item-meta';
+      const current = Number(goal.savedVnd || 0).toLocaleString();
+      const target = Number(goal.targetVnd || 0).toLocaleString();
+      meta.textContent = `${current} / ${target}`;
+
+      item.appendChild(title);
+      item.appendChild(meta);
+      listEl.appendChild(item);
+    });
+  }
+
+  function renderDashboardGoals() {
+    const container = document.getElementById('dashboard-goals');
+    if (!container) return;
+
+    container.innerHTML = '';
+    if (!state.goals || state.goals.length === 0) return;
+
+    state.goals
+      .filter((goal) => {
+        const saved = Number(goal.savedVnd) || 0;
+        const target = Number(goal.targetVnd) || 0;
+        return target > 0 && saved > 0 && saved < target;
+      })
+      .forEach((goal) => {
+        container.appendChild(createGoalCard(goal, { context: 'dashboard' }));
+      });
   }
 
   function openGoalModal() {
@@ -676,6 +857,7 @@ async function saveStateToSupabase(state) {
 
       persistState();
       renderSavingsGoals();
+      renderDashboardGoals();
       closeGoalModal();
       showToast('Цель обновлена');
     } else {
@@ -691,6 +873,7 @@ async function saveStateToSupabase(state) {
       state.goals.push(newGoal);
       persistState();
       renderSavingsGoals();
+      renderDashboardGoals();
       closeGoalModal();
       showToast('Цель добавлена');
     }
@@ -708,6 +891,7 @@ async function saveStateToSupabase(state) {
     goal.savedVnd = (goal.savedVnd || 0) + Number(amount);
     persistState();
     renderSavingsGoals();
+    renderDashboardGoals();
     closeMoneyModal();
     showToast('Деньги добавлены');
   }
@@ -756,13 +940,20 @@ async function saveStateToSupabase(state) {
 
     const res = Object.keys(map).map((key) => {
       const e = map[key];
-      const salary = calculateCommission(e.amount);
+      const baseSalary = Number(state.settings.baseSalary) || 0;
+      let commission = calculateCommission(e.amount);
+      // One-off fix: week 45 of 2025 had an extra 1% completion bonus, total rate 6.5%
+      if (key === '2025-W45') {
+        commission = (Number(e.amount || 0) * 6.5) / 100;
+      }
+      const salary = baseSalary + commission; // total salary = base + commission
       return {
         raw: e.raw,
         label: keyToLabel(key),
         count: e.count,
         amount: e.amount,
         salary,
+        commission,
       };
     });
 
@@ -772,11 +963,15 @@ async function saveStateToSupabase(state) {
   function createHistoryRow(label, count, amount, salary, onDelete) {
     const row = document.createElement('div');
     row.className = 'history-item';
-    const span = document.createElement('span');
+    const info = document.createElement('div');
+    info.className = 'history-row-info';
     const word = count === 1 ? 'депозит' : 'депозитов';
-    span.textContent =
-      `${label} — ${count} ${word} — Общая сумма: ${formatCurrency(amount)} — ЗП (по плану): ${formatCurrency(salary)}`;
-    row.appendChild(span);
+    info.textContent = `${label} — ${count} ${word} — Общая сумма: ${formatCurrency(amount)} — `;
+    const salarySpan = document.createElement('span');
+    salarySpan.className = 'salary-with-rate';
+    salarySpan.textContent = `ЗП (с ставкой): ${formatCurrency(salary)}`;
+    info.appendChild(salarySpan);
+    row.appendChild(info);
 
     if (onDelete) {
       const del = document.createElement('button');
@@ -823,13 +1018,35 @@ async function saveStateToSupabase(state) {
       ),
     );
 
-    // По месяцам
+    // По месяцам — calculate monthly salary by summing weekly salaries
+    // Build a map of weekly salaries
+    const weeklySalaryMap = Object.create(null);
+    weekly.forEach((w) => {
+      weeklySalaryMap[w.raw] = w.salary;
+    });
+
+    // For each month, collect unique week keys that fall into that month
+    const monthWeeks = Object.create(null); // monthKey -> Set of weekKeys
+    state.deposits.forEach((d) => {
+      const monthKey = getMonthKey(d.date);
+      const weekKey = getWeekKey(d.date);
+      if (!monthWeeks[monthKey]) monthWeeks[monthKey] = new Set();
+      monthWeeks[monthKey].add(weekKey);
+    });
+
+    // Use aggregateBy to get monthly count/amount, then sum weekly salaries for that month
     const monthly = aggregateBy(state.deposits, (d) => getMonthKey(d.date));
-    monthly.forEach((i) =>
-      months.appendChild(
-        createHistoryRow(i.label, i.count, i.amount, i.salary),
-      ),
-    );
+    monthly.forEach((m) => {
+      const weeksSet = monthWeeks[m.raw] || new Set();
+      let monthSalary = 0;
+      weeksSet.forEach((wk) => {
+        const s = Number(weeklySalaryMap[wk] || 0);
+        monthSalary += s;
+      });
+      // Override salary with summed weekly salaries
+      m.salary = monthSalary;
+      months.appendChild(createHistoryRow(m.label, m.count, m.amount, m.salary));
+    });
   }
 
   /* ---------- Modal ---------- */
@@ -955,6 +1172,7 @@ async function saveStateToSupabase(state) {
 
         document.querySelectorAll('.nav-item').forEach((b) => {
           b.classList.toggle('active', b === item);
+          b.classList.toggle('glass-nav--active', b === item);
         });
 
         document.querySelectorAll('.section').forEach((sec) => {
@@ -1057,10 +1275,20 @@ async function saveStateToSupabase(state) {
       .getElementById('save-money')
       .addEventListener('click', handleSaveMoney);
 
-    // Goal edit buttons (delegated event listener)
+    // Goal edit buttons (delegated event listeners)
     const savingsGoalsList = document.getElementById('savings-goals-list');
     if (savingsGoalsList) {
       savingsGoalsList.addEventListener('click', (e) => {
+        if (e.target.classList.contains('goal-edit-btn')) {
+          const goalId = e.target.getAttribute('data-goal-id');
+          if (goalId) openEditGoalModal(goalId);
+        }
+      });
+    }
+
+    const dashboardGoals = document.getElementById('dashboard-goals');
+    if (dashboardGoals) {
+      dashboardGoals.addEventListener('click', (e) => {
         if (e.target.classList.contains('goal-edit-btn')) {
           const goalId = e.target.getAttribute('data-goal-id');
           if (goalId) openEditGoalModal(goalId);
@@ -1093,6 +1321,7 @@ async function saveStateToSupabase(state) {
   function updateAll() {
     renderDashboardSummary();
     renderDashboardPlans();
+    renderDashboardGoals();
     if (document.getElementById('plan').classList.contains('active')) {
       renderPlanDetail();
     }
@@ -1107,13 +1336,46 @@ async function saveStateToSupabase(state) {
   document.addEventListener('DOMContentLoaded', () => {
     const splash = document.getElementById('splash');
     if (splash) {
+      // Total time should roughly cover the logo + greeting animations
+      const SPLASH_DURATION = 3600; // ms
       setTimeout(() => {
         splash.classList.add('splash-hidden');
-        setTimeout(() => {
-          if (splash.parentNode) splash.parentNode.removeChild(splash);
-        }, 1000);
-      }, 1500);
+      }, SPLASH_DURATION);
     }
+    // Completed goals modal/button wiring
+    (function bindCompletedGoalsUI() {
+      const completedBtn = document.getElementById('completedGoalsButton');
+      const modal = document.getElementById('completedGoalsModal');
+      const closeBtn = modal ? modal.querySelector('[data-close-completed-goals]') : null;
+
+      if (completedBtn && modal) {
+        completedBtn.addEventListener('click', () => {
+          modal.classList.remove('hidden');
+        });
+      }
+
+      if (closeBtn && modal) {
+        closeBtn.addEventListener('click', () => {
+          modal.classList.add('hidden');
+        });
+      }
+
+      if (modal) {
+        modal.addEventListener('click', (e) => {
+          if (e.target === modal) modal.classList.add('hidden');
+        });
+      }
+    })();
     init();
+
+    // Telegram WebApp: notify readiness and expose user/theme (defensive)
+    try {
+      TelegramIntegration.ready();
+      window.AppContext.telegramUser = TelegramIntegration.getUser();
+      window.AppContext.telegramTheme = TelegramIntegration.getThemeParams();
+      applyTelegramThemeIfNeeded();
+    } catch (e) {
+      /* ignore if Telegram is not present */
+    }
   });
 })();
